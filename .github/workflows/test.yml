@@ -1,0 +1,217 @@
+name: Test Backup System
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly test on Mondays
+
+jobs:
+  test-installation:
+    name: Test Installation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install PowerShell (Linux/macOS)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          # Install PowerShell on Ubuntu
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https software-properties-common
+          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update
+          sudo apt-get install -y powershell
+        elif [ "$RUNNER_OS" == "macOS" ]; then
+          # Install PowerShell on macOS
+          brew install --cask powershell
+        fi
+        
+    - name: Test PowerShell Scripts (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Testing PowerShell scripts on Windows..."
+        
+        # Test script syntax
+        Get-ChildItem scripts/*.ps1 | ForEach-Object {
+          Write-Host "Testing syntax: $($_.Name)"
+          $null = Get-Command -Syntax $_.FullName
+        }
+        
+        # Test installation script (dry run)
+        Write-Host "Testing installation script..."
+        .\install.ps1 -DryRun -Framework generic
+        
+    - name: Test PowerShell Scripts (Unix)  
+      if: runner.os != 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "Testing PowerShell scripts on ${{ runner.os }}..."
+        
+        # Test script syntax
+        Get-ChildItem scripts/*.ps1 | ForEach-Object {
+          Write-Host "Testing syntax: $($_.Name)"
+          $null = Get-Command -Syntax $_.FullName -ErrorAction Stop
+        }
+        
+        # Test installation script (dry run)
+        Write-Host "Testing installation script..."
+        pwsh ./install.ps1 -DryRun -Framework generic
+        
+  test-frameworks:
+    name: Test Framework Integration (${{ matrix.framework }})
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        framework: [react, vue, angular, node, generic]
+        
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Create Test Project
+      shell: pwsh
+      run: |
+        $framework = "${{ matrix.framework }}"
+        Write-Host "Creating test project for framework: $framework"
+        
+        # Create test directory
+        mkdir "test-$framework"
+        cd "test-$framework"
+        git init
+        git config user.name "Test User"
+        git config user.email "test@example.com"
+        
+        # Create basic project structure based on framework
+        switch ($framework) {
+          "react" {
+            npm create vite@latest . -- --template react-ts --yes
+          }
+          "vue" {
+            npm create vue@latest . -- --typescript --yes
+          }
+          "angular" {
+            # Create basic package.json for Angular
+            $packageJson = @{
+              name = "test-angular-app"
+              scripts = @{
+                ng = "ng"
+                start = "ng serve"
+                build = "ng build"
+                test = "ng test --watch=false"
+                lint = "ng lint"
+              }
+            }
+            $packageJson | ConvertTo-Json -Depth 4 | Out-File -FilePath "package.json" -Encoding utf8
+          }
+          "node" {
+            npm init -y
+            npm install express
+          }
+          default {
+            npm init -y
+          }
+        }
+        
+        # Test installation
+        Write-Host "Testing backup system installation..."
+        ..\install.ps1 -Framework $framework -DryRun
+        
+    - name: Validate Installation
+      shell: pwsh
+      working-directory: test-${{ matrix.framework }}
+      run: |
+        Write-Host "Validating installation for ${{ matrix.framework }}..."
+        
+        # Check if scripts directory exists (in dry run, it shows what would be created)
+        if (Test-Path "../scripts") {
+          Write-Host "✅ Scripts directory structure validated"
+        }
+        
+        # Check package.json template
+        if (Test-Path "../package.json.template") {
+          $template = Get-Content "../package.json.template" | ConvertFrom-Json
+          if ($template.scripts."ai:safety-check") {
+            Write-Host "✅ Package.json template has required scripts"
+          } else {
+            Write-Error "❌ Package.json template missing required scripts"
+          }
+        }
+        
+        Write-Host "✅ Framework validation complete for ${{ matrix.framework }}"
+
+  validate-examples:
+    name: Validate Framework Examples
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Validate Example Configurations
+      shell: pwsh
+      run: |
+        Write-Host "Validating framework example configurations..."
+        
+        # Check that examples directory exists
+        if (-not (Test-Path "examples/README.md")) {
+          Write-Error "❌ Examples directory missing"
+          exit 1
+        }
+        
+        # Validate example configurations contain required scripts
+        $exampleContent = Get-Content "examples/README.md" -Raw
+        $requiredScripts = @("ai:safety-check", "checkpoint:feature", "save")
+        
+        foreach ($script in $requiredScripts) {
+          if ($exampleContent -notlike "*$script*") {
+            Write-Error "❌ Example missing required script: $script"
+            exit 1
+          }
+        }
+        
+        Write-Host "✅ All framework examples validated"
+        
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'

@@ -1,0 +1,41 @@
+{
+  "name": "your-project-name",
+  "version": "1.0.0",
+  "description": "Your project with backup system",
+  "scripts": {
+    "dev": "echo 'Configure your dev command here'",
+    "build": "echo 'Configure your build command here'",
+    "test": "echo 'Configure your test command here'",
+    "lint": "echo 'Configure your lint command here'",
+    "health:check": "powershell -ExecutionPolicy Bypass -File ./scripts/health-check.ps1",
+    "save": "powershell -ExecutionPolicy Bypass -File ./scripts/checkpoint-simple.ps1",
+    "checkpoint:auto": "powershell -ExecutionPolicy Bypass -File ./scripts/checkpoint-simple.ps1 -Type auto",
+    "checkpoint:session": "powershell -ExecutionPolicy Bypass -File ./scripts/checkpoint-simple.ps1 -Type session",
+    "checkpoint:daily": "powershell -ExecutionPolicy Bypass -File ./scripts/checkpoint-simple.ps1 -Type daily",
+    "checkpoint:feature": "powershell -ExecutionPolicy Bypass -File ./scripts/checkpoint-simple.ps1 -Type feature",
+    "rollback:daily": "powershell -ExecutionPolicy Bypass -File ./scripts/rollback-daily.ps1",
+    "ai:safety-check": "powershell -ExecutionPolicy Bypass -File ./scripts/ai-safety-check.ps1",
+    "ai:pre-change": "powershell -ExecutionPolicy Bypass -File ./scripts/ai-safety-check.ps1"
+  },
+  "keywords": [
+    "backup-system",
+    "checkpoint", 
+    "git-automation",
+    "ai-safety"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/your-repo.git"
+  },
+  "backup-system": {
+    "version": "1.0.0",
+    "installed": true,
+    "framework": "configure-me",
+    "features": [
+      "smart-checkpointing",
+      "ai-safety-protocol", 
+      "health-checks",
+      "emergency-rollback"
+    ]
+  }
+}

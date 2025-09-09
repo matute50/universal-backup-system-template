@@ -1,0 +1,194 @@
+# Pre-commit hook for Universal Backup System
+# Runs security checks and validations before commits
+
+# Enable strict mode
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+Write-Host "🔍 Running pre-commit security checks..." -ForegroundColor Cyan
+
+# Function to check for sensitive files
+function Test-SensitiveFiles {
+    $sensitivePatterns = @(
+        "\.key$", "\.pem$", "\.p12$", "\.pfx$",
+        "\.env$", "secrets\.", "credentials",
+        "id_rsa", "\.crt$", "\.cer$"
+    )
+    
+    $stagedFiles = git diff --cached --name-only
+    $sensitiveFIlesFound = @()
+    
+    foreach ($file in $stagedFiles) {
+        foreach ($pattern in $sensitivePatterns) {
+            if ($file -match $pattern) {
+                $sensitiveFIlesFound += $file
+            }
+        }
+    }
+    
+    if ($sensitiveFIlesFound.Count -gt 0) {
+        Write-Host "🚨 SECURITY ALERT: Sensitive files detected in commit:" -ForegroundColor Red
+        foreach ($file in $sensitiveFIlesFound) {
+            Write-Host "  - $file" -ForegroundColor Red
+        }
+        Write-Host "Please review and remove sensitive files before committing." -ForegroundColor Red
+        return $false
+    }
+    
+    return $true
+}
+
+# Function to check for hardcoded secrets
+function Test-HardcodedSecrets {
+    $secretPatterns = @(
+        "password\s*=\s*['\"].*['\"]",
+        "api_key\s*=\s*['\"].*['\"]",
+        "secret\s*=\s*['\"].*['\"]",
+        "token\s*=\s*['\"].*['\"]",
+        "AKIA[0-9A-Z]{16}",  # AWS Access Key
+        "ghp_[a-zA-Z0-9]{36}", # GitHub Token
+        "xoxb-[0-9]{11}-[0-9]{12}-[a-zA-Z0-9]{24}" # Slack Token
+    )
+    
+    $stagedFiles = git diff --cached --name-only | Where-Object { $_ -match "\.(js|ts|py|rb|php|json|yaml|yml|env)$" }
+    $secretsFound = @()
+    
+    foreach ($file in $stagedFiles) {
+        if (Test-Path $file) {
+            $content = Get-Content $file -Raw
+            foreach ($pattern in $secretPatterns) {
+                if ($content -match $pattern) {
+                    $secretsFound += @{ File = $file; Pattern = $pattern }
+                }
+            }
+        }
+    }
+    
+    if ($secretsFound.Count -gt 0) {
+        Write-Host "🚨 SECURITY ALERT: Potential hardcoded secrets detected:" -ForegroundColor Red
+        foreach ($secret in $secretsFound) {
+            Write-Host "  - File: $($secret.File)" -ForegroundColor Red
+            Write-Host "    Pattern: $($secret.Pattern)" -ForegroundColor Gray
+        }
+        Write-Host "Please remove hardcoded secrets and use environment variables instead." -ForegroundColor Red
+        return $false
+    }
+    
+    return $true
+}
+
+# Function to validate commit message
+function Test-CommitMessage {
+    # Get the commit message file path
+    $commitMsgFile = ".git/COMMIT_EDITMSG"
+    
+    if (-not (Test-Path $commitMsgFile)) {
+        return $true # No commit message file, skip validation
+    }
+    
+    $commitMsg = Get-Content $commitMsgFile -Raw
+    
+    # Check for minimum length
+    if ($commitMsg.Length -lt 10) {
+        Write-Host "⚠️  WARNING: Commit message is very short. Consider adding more detail." -ForegroundColor Yellow
+    }
+    
+    # Check for security-related keywords that might indicate dangerous operations
+    $dangerousKeywords = @("delete all", "remove everything", "drop database", "format", "destroy")
+    foreach ($keyword in $dangerousKeywords) {
+        if ($commitMsg -match $keyword) {
+            Write-Host "🚨 WARNING: Potentially dangerous operation mentioned in commit message: '$keyword'" -ForegroundColor Yellow
+            Write-Host "Please confirm this is intentional." -ForegroundColor Yellow
+        }
+    }
+    
+    return $true
+}
+
+# Function to run linting if available
+function Invoke-LintingCheck {
+    Write-Host "📋 Running linting checks..." -ForegroundColor Cyan
+    
+    # ESLint for JavaScript/TypeScript
+    if (Test-Path "package.json") {
+        $packageJson = Get-Content "package.json" | ConvertFrom-Json
+        if ($packageJson.scripts.lint) {
+            try {
+                npm run lint 2>$null
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Host "✅ ESLint passed" -ForegroundColor Green
+                } else {
+                    Write-Host "❌ ESLint failed - please fix linting errors" -ForegroundColor Red
+                    return $false
+                }
+            }
+            catch {
+                Write-Host "⚠️  Could not run ESLint" -ForegroundColor Yellow
+            }
+        }
+    }
+    
+    # Python linting
+    if (Test-Path "requirements.txt" -or Test-Path "pyproject.toml") {
+        try {
+            flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "✅ Python linting passed" -ForegroundColor Green
+            } else {
+                Write-Host "⚠️  Python linting issues detected" -ForegroundColor Yellow
+            }
+        }
+        catch {
+            Write-Host "ℹ️  Python linting not available" -ForegroundColor Gray
+        }
+    }
+    
+    return $true
+}
+
+# Run all pre-commit checks
+$allChecksPassed = $true
+
+# 1. Check for sensitive files
+if (-not (Test-SensitiveFiles)) {
+    $allChecksPassed = $false
+}
+
+# 2. Check for hardcoded secrets
+if (-not (Test-HardcodedSecrets)) {
+    $allChecksPassed = $false
+}
+
+# 3. Validate commit message
+Test-CommitMessage | Out-Null
+
+# 4. Run linting checks
+if (-not (Invoke-LintingCheck)) {
+    # Don't fail the commit for linting issues, just warn
+    Write-Host "⚠️  Linting issues detected but allowing commit to proceed" -ForegroundColor Yellow
+}
+
+# 5. Run backup system security validation
+$securityScript = Join-Path $PSScriptRoot "..\scripts\security-validation.ps1"
+if (Test-Path $securityScript) {
+    try {
+        & $securityScript
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Security validation failed" -ForegroundColor Red
+            $allChecksPassed = $false
+        }
+    }
+    catch {
+        Write-Host "⚠️  Could not run security validation" -ForegroundColor Yellow
+    }
+}
+
+# Final result
+if ($allChecksPassed) {
+    Write-Host "✅ All pre-commit checks passed!" -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "❌ Pre-commit checks failed. Please fix the issues above." -ForegroundColor Red
+    Write-Host "To skip these checks (not recommended), use: git commit --no-verify" -ForegroundColor Gray
+    exit 1
+}

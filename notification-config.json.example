@@ -1,0 +1,61 @@
+{
+  "slack": {
+    "enabled": false,
+    "webhook": "https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK",
+    "channel": "#alerts",
+    "username": "Backup System",
+    "icon_emoji": ":backup:",
+    "alertTypes": ["error", "critical", "security"]
+  },
+  "discord": {
+    "enabled": false,
+    "webhook": "https://discord.com/api/webhooks/YOUR/DISCORD/WEBHOOK",
+    "username": "Backup System",
+    "avatar_url": "",
+    "alertTypes": ["error", "critical"]
+  },
+  "email": {
+    "enabled": false,
+    "smtpServer": "smtp.gmail.com",
+    "smtpPort": 587,
+    "useSsl": true,
+    "username": "your-email@gmail.com",
+    "password": "your-app-password",
+    "from": "your-email@gmail.com",
+    "to": ["admin@yourcompany.com", "dev-team@yourcompany.com"],
+    "subject": "Backup System Alert - {{PROJECT_NAME}}",
+    "alertTypes": ["critical", "security"]
+  },
+  "teams": {
+    "enabled": false,
+    "webhook": "https://outlook.office.com/webhook/YOUR/TEAMS/WEBHOOK",
+    "alertTypes": ["error", "critical"]
+  },
+  "custom": {
+    "enabled": false,
+    "endpoint": "https://your-api.com/alerts",
+    "method": "POST",
+    "headers": {
+      "Authorization": "Bearer YOUR_TOKEN",
+      "Content-Type": "application/json"
+    },
+    "alertTypes": ["all"]
+  },
+  "settings": {
+    "throttle": {
+      "enabled": true,
+      "maxAlertsPerHour": 10,
+      "cooldownMinutes": 15
+    },
+    "escalation": {
+      "enabled": true,
+      "escalateAfterMinutes": 30,
+      "escalateTo": ["email", "teams"]
+    },
+    "healthCheck": {
+      "enabled": true,
+      "intervalMinutes": 60,
+      "testMessage": "Backup System Health Check"
+    }
+  }
+}

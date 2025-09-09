@@ -1,0 +1,17 @@
+name: Universal Backup System Template
+description: Framework-agnostic backup and checkpoint system for any development project with AI safety protocol
+tags:
+  - backup
+  - git
+  - automation  
+  - ai-safety
+  - checkpoint
+  - rollback
+  - framework-agnostic
+  - devops
+  - typescript
+  - react
+  - vue
+  - angular
+  - node
+  - python
