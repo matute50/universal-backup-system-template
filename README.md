@@ -2,7 +2,7 @@
 
 **A framework-agnostic Git-based backup and checkpoint system for any development project.**
 
-[![GitHub Template](https://img.shields.io/badge/GitHub-Use%20This%20Template-brightgreen?logo=github)](https://github.com/HalbonLabs/universal-backup-system/generate)
+[![GitHub Template](https://img.shields.io/badge/GitHub-Use%20This%20Template-brightgreen?logo=github)](https://github.com/HalbonLabs/universal-backup-system-template/generate)
 [![Framework Agnostic](https://img.shields.io/badge/Framework-Agnostic-blue)](#framework-support)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](#requirements)
 [![License](https://img.shields.io/badge/License-MIT-green)](#license)
@@ -10,7 +10,7 @@
 ## ⚡ **Quick Start**
 
 ### 1️⃣ Use This Template
-Click **"Use this template"** above or visit: https://github.com/HalbonLabs/universal-backup-system/generate
+Click **"Use this template"** above or visit: https://github.com/HalbonLabs/universal-backup-system-template/generate
 
 ### 2️⃣ Clone Your New Repo
 ```bash
